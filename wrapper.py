@@ -59,8 +59,41 @@ class Wrapper:
         self.attacker_position_image = numpy.zeros((3, self.image_size, self.image_size), dtype=int)
         self.cml_position_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
         self.opportunity_position_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
-        self.opportunity_choice_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
         self.target_value_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
+
+    def init_input(self, features, detectionRadius, interceptionRadius):
+        self.update_def_det_image(features, detectionRadius)
+        self.update_def_int_image(features, interceptionRadius)
+        self.update_def_pos_image(features)
+        self.update_target_pos_image(features)
+        self.update_cml_pos_image(features)
+        self.update_attacker_pos_image(features)
+        self.generate_network_input()
+        self.write_target_screen()
+
+    def step_update(self, features, defender_opportunities):
+        self.update_def_op_image(defender_opportunities)
+        self.update_attacker_pos_image(features)
+        self.update_target_value_image(features)
+        self.generate_network_input()
+        self.write_target_screen()
+
+    def generate_network_input(self):
+        #Stack collected information from the simulator
+        screen = numpy.stack((self.defender_detection_image, self.defender_interception_image,
+                                   self.defender_position_image, self.target_position_image,
+                                   self.cml_position_image, self.opportunity_position_image,
+                                   self.target_value_image), axis=0)
+
+        screen = numpy.concatenate((screen, self.attacker_position_image), axis=0)
+
+        filler = numpy.zeros((13, self.image_size, self.image_size), dtype=int)
+
+        screen = numpy.concatenate((screen, filler), axis=0)
+        minimap = numpy.zeros((17, self.image_size, self.image_size), dtype=int)
+        info = numpy.zeros(524, dtype=int)
+
+        return screen, minimap, info
 
     def update_def_det_image(self, features, radius):
         """
@@ -225,23 +258,6 @@ class Wrapper:
                 y =- 1
 
             self.cml_position_image[y][x] = 1
-
-    def update_op_choice_image(self, defender_actions):
-
-        self.opportunity_choice_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
-
-        for action in defender_actions:
-            print(action[1] * self.ratio)
-            x = action[1] * self.ratio
-            y = action[2] * self.ratio
-            x = int(x)
-            y = int(y)
-            y = self.image_size - y
-
-            if y == self.image_size:
-                y =- 1
-
-            self.opportunity_choice_image[y][x] = 1
 
     def update_target_value_image(self, features):
 
@@ -443,22 +459,22 @@ class Wrapper:
                 f.write("\n")
         f.close()
 
-    def write_op_choice(self):
+    def write_target_screen(self):
         """
             Used to write a image to a txt document for testing purposes.
             (easier manipulation and viewing)
         """
-
-        f = open("./wrapper_images/op_choice_image.txt", "w")
-        for x in self.opportunity_choice_image:
+        screen, mini, info = self.generate_network_input()
+        f = open("./wrapper_images/screen.txt", "w")
+        for x in screen:
             f.write(str(x))
         f.close()
 
-        f = open("./wrapper_images/op_choice_image.txt", "r")
+        f = open("./wrapper_images/screen.txt", "r")
         content = f.read()
         f.close()
 
-        f = open("./wrapper_images/op_choice_image.txt", "w")
+        f = open("./wrapper_images/screen.txt", "w")
         for x in content:
             if x != "\n" and x != " ":
                 f.write(x)

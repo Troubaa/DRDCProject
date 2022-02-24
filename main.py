@@ -552,8 +552,6 @@ class Simulation:
             self.cruise_missile_launch(attacker_action)
         if defender_actions:
             self.add_interception_events(defender_actions)
-            self.wrapper.update_op_choice_image(defender_actions)
-            self.wrapper.write_op_choice()
 
         self.process_events()
         # Updating cruise_missile_positions
@@ -561,13 +559,8 @@ class Simulation:
         # Updating the detections and opportunity list
         self.update_detections()
         self.update_opportunities()
-
-        self.wrapper.update_def_op_image(self.defender_opportunities)
-        self.wrapper.update_attacker_pos_image(self.features)
-        self.wrapper.update_target_value_image(self.features)
-        self.wrapper.write_attacker_postions()
-        self.wrapper.write_def_opportunities()
-        self.wrapper.write_target_value()
+        #update wrapper images
+        self.wrapper.step_update(self.features, self.defender_opportunities)
 
 
 
@@ -673,25 +666,11 @@ if __name__ == '__main__':
 
     f = Features(target_count=targets, defender_count=defenders)
 
-    # Sweetnam Edit
+    # Initialize wrapper
     w = wrapper.Wrapper(target_count=targets, defender_count=defenders)
-
-    w.update_def_det_image(f, DEFENDER_DETECTION_RADIUS)
-    w.update_def_int_image(f, DEFENDER_INTERCEPTION_RADIUS)
-    w.update_def_pos_image(f)
-    w.update_target_pos_image(f)
-    w.update_cml_pos_image(f)
-    w.update_attacker_pos_image(f)
-    w.write_defender_detection()
-    w.write_defender_interception()
-    w.write_defender_postions()
-    w.write_target_postions()
-    w.write_attacker_postions()
-    w.write_cml_postions()
+    w.init_input(f, DEFENDER_DETECTION_RADIUS, DEFENDER_INTERCEPTION_RADIUS)
 
     env = Simulation(features=f, time_step_size=ts_size, wrapper=w)
-
-
 
     window = pyglet.window.Window(width=1000, height=1000)
 
