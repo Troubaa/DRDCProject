@@ -1,4 +1,6 @@
 import numpy
+import tensorflow as tf
+from network import build_fcn
 
 class Wrapper:
     """

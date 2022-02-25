@@ -1,4 +1,5 @@
 import sys
+import os
 
 import numpy
 import numpy as np
@@ -8,6 +9,8 @@ import collections
 import pyglet
 import time
 import wrapper
+import tensorflow as tf
+
 
 # Uncomment below for testing purposes (consistent initialization)
 # np.random.seed(0)
@@ -16,6 +19,12 @@ import wrapper
 #Printing without truncation
 numpy.set_printoptions(threshold=sys.maxsize)
 
+LOG = "./log"
+SNAPSHOT = "./snapshot"
+if not os.path.exists(LOG):
+  os.makedirs(LOG)
+if not os.path.exists(SNAPSHOT):
+  os.makedirs(SNAPSHOT)
 
 class Features:
     """
@@ -671,6 +680,11 @@ if __name__ == '__main__':
     w.init_input(f, DEFENDER_DETECTION_RADIUS, DEFENDER_INTERCEPTION_RADIUS)
 
     env = Simulation(features=f, time_step_size=ts_size, wrapper=w)
+
+    #Setup Tensorflow
+    config = tf.ConfigProto(allow_soft_placement=True)
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
 
     window = pyglet.window.Window(width=1000, height=1000)
 
