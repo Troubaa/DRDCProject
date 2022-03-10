@@ -11,21 +11,21 @@ import tensorflow as tf
 from pysc2.lib import actions
 from pysc2.lib import features
 
-from agents.network import build_net
+from network import build_fcn
 import utils as U
 
+MINIMAPFEATS = 17
+SCREENFEATS = 23
 
 class A3CAgent(object):
-  """An agent specifically for solving the mini-game maps."""
-  def __init__(self, training, msize, ssize, name='A3C/A3CAgent'):
+  """An agent specifically for solving the mini-game maps. Now converted to work for the DRDC Simulator."""
+  def __init__(self, training, image_size, actionsNum, name='A3C/A3CAgent'):
     self.name = name
     self.training = training
     self.summary = []
     # Minimap size, screen size and info size
-    assert msize == ssize
-    self.msize = msize
-    self.ssize = ssize
-    self.isize = len(actions.FUNCTIONS)
+    self.image_size = image_size
+    self.isize = actionsNum
     self.policyTensor = None
     self.valueTensor = None
     self.policyLoss = None
@@ -51,26 +51,23 @@ class A3CAgent(object):
     self.epsilon = [0.05, 0.2]
 
 
-  def build_model(self, reuse, dev, ntype):
+  def build_model(self, dev):
     with tf.variable_scope(self.name) and tf.device(dev):
-      if reuse:
-        tf.get_variable_scope().reuse_variables()
-        assert tf.get_variable_scope().reuse
 
       # Set inputs of networks
-      self.minimap = tf.placeholder(tf.float32, [None, U.minimap_channel(), self.msize, self.msize], name='minimap')
-      self.screen = tf.placeholder(tf.float32, [None, U.screen_channel(), self.ssize, self.ssize], name='screen')
+      self.minimap = tf.placeholder(tf.float32, [None, MINIMAPFEATS, self.image_size, self.image_size], name='minimap')
+      self.screen = tf.placeholder(tf.float32, [None, SCREENFEATS, self.image_size, self.image_size], name='screen')
       self.info = tf.placeholder(tf.float32, [None, self.isize], name='info')
 
       # Build networks
-      net = build_net(self.minimap, self.screen, self.info, self.msize, self.ssize, len(actions.FUNCTIONS), ntype)
+      net = build_fcn(self.minimap, self.screen, self.info, self.image_size, self.isize)
       self.spatial_action, self.non_spatial_action, self.value = net
 
       # Set targets and masks
       self.valid_spatial_action = tf.placeholder(tf.float32, [None], name='valid_spatial_action')
-      self.spatial_action_selected = tf.placeholder(tf.float32, [None, self.ssize**2], name='spatial_action_selected')
-      self.valid_non_spatial_action = tf.placeholder(tf.float32, [None, len(actions.FUNCTIONS)], name='valid_non_spatial_action')
-      self.non_spatial_action_selected = tf.placeholder(tf.float32, [None, len(actions.FUNCTIONS)], name='non_spatial_action_selected')
+      self.spatial_action_selected = tf.placeholder(tf.float32, [None, self.image_size**2], name='spatial_action_selected')
+      self.valid_non_spatial_action = tf.placeholder(tf.float32, [None, self.isize], name='valid_non_spatial_action')
+      self.non_spatial_action_selected = tf.placeholder(tf.float32, [None, self.isize], name='non_spatial_action_selected')
       self.value_target = tf.placeholder(tf.float32, [None], name='value_target')
 
       # Compute log probability
@@ -118,14 +115,8 @@ class A3CAgent(object):
       self.saver = tf.train.Saver(max_to_keep=100)
 
 
-  def step(self, obs):
-    minimap = np.array(obs.observation['minimap'], dtype=np.float32)
-    minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
-    screen = np.array(obs.observation['screen'], dtype=np.float32)
-    screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-    # TODO: only use available actions
-    info = np.zeros([1, self.isize], dtype=np.float32)
-    info[0, obs.observation['available_actions']] = 1
+  def step(self, obs, wrapper):
+    screen, minimap, info = wrapper.generate_network_input()
 
     feed = {self.minimap: minimap,
             self.screen: screen,
@@ -134,35 +125,32 @@ class A3CAgent(object):
       [self.non_spatial_action, self.spatial_action],
       feed_dict=feed)
 
-    # Select an action and a spatial target
-    non_spatial_action = non_spatial_action.ravel()
-    spatial_action = spatial_action.ravel()
-    valid_actions = obs.observation['available_actions']
-    act_id = valid_actions[np.argmax(non_spatial_action[valid_actions])]
-    target = np.argmax(spatial_action)
+    # #TODO - Select an action and a spatial target
+    # non_spatial_action = non_spatial_action.ravel()
+    # spatial_action = spatial_action.ravel()
+    # valid_actions = obs.observation['available_actions']
+    # act_id = valid_actions[np.argmax(non_spatial_action[valid_actions])]
+    # target = np.argmax(spatial_action)
+    #
+    # target = [int(target // self.ssize), int(target % self.ssize)]
 
-    target = [int(target // self.ssize), int(target % self.ssize)]
+    # #TODO - Epsilon greedy exploration
+    # if self.training and np.random.rand() < self.epsilon[0]:
+    #   act_id = np.random.choice(valid_actions)
+    # if self.training and np.random.rand() < self.epsilon[1]:
+    #   dy = np.random.randint(-4, 5)
+    #   target[0] = int(max(0, min(self.ssize-1, target[0]+dy)))
+    #   dx = np.random.randint(-4, 5)
+    #   target[1] = int(max(0, min(self.ssize-1, target[1]+dx)))
 
-    if False:
-      print(actions.FUNCTIONS[act_id].name, target)
-
-    # Epsilon greedy exploration
-    if self.training and np.random.rand() < self.epsilon[0]:
-      act_id = np.random.choice(valid_actions)
-    if self.training and np.random.rand() < self.epsilon[1]:
-      dy = np.random.randint(-4, 5)
-      target[0] = int(max(0, min(self.ssize-1, target[0]+dy)))
-      dx = np.random.randint(-4, 5)
-      target[1] = int(max(0, min(self.ssize-1, target[1]+dx)))
-
-    # Set act_id and act_args
-    act_args = []
-    for arg in actions.FUNCTIONS[act_id].args:
-      if arg.name in ('screen', 'minimap', 'screen2'):
-        act_args.append([target[1], target[0]])
-      else:
-        act_args.append([0])  # TODO: Be careful
-    return actions.FunctionCall(act_id, act_args)
+    # #TODO - Set act_id and act_args (possibly Not needed for DRDC Simulator)
+    # act_args = []
+    # for arg in actions.FUNCTIONS[act_id].args:
+    #   if arg.name in ('screen', 'minimap', 'screen2'):
+    #     act_args.append([target[1], target[0]])
+    #   else:
+    #     act_args.append([0])  # TODO: Be careful
+    # return actions.FunctionCall(act_id, act_args)
 
 
   def update(self, rbs, disc, lr, cter):
@@ -194,7 +182,7 @@ class A3CAgent(object):
     value_target[-1] = R
 
     valid_spatial_action = np.zeros([len(rbs)], dtype=np.float32)
-    spatial_action_selected = np.zeros([len(rbs), self.ssize**2], dtype=np.float32)
+    spatial_action_selected = np.zeros([len(rbs), self.image_size**2], dtype=np.float32)
     valid_non_spatial_action = np.zeros([len(rbs), len(actions.FUNCTIONS)], dtype=np.float32)
     non_spatial_action_selected = np.zeros([len(rbs), len(actions.FUNCTIONS)], dtype=np.float32)
 
@@ -224,7 +212,7 @@ class A3CAgent(object):
       args = actions.FUNCTIONS[act_id].args
       for arg, act_arg in zip(args, act_args):
         if arg.name in ('screen', 'minimap', 'screen2'):
-          ind = act_arg[1] * self.ssize + act_arg[0]
+          ind = act_arg[1] * self.image_size + act_arg[0]
           valid_spatial_action[i] = 1
           spatial_action_selected[i, ind] = 1
 

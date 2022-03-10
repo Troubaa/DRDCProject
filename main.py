@@ -10,6 +10,7 @@ import pyglet
 import time
 import wrapper
 import tensorflow as tf
+import a3c_agent
 
 
 # Uncomment below for testing purposes (consistent initialization)
@@ -18,13 +19,6 @@ import tensorflow as tf
 
 #Printing without truncation
 numpy.set_printoptions(threshold=sys.maxsize)
-
-LOG = "./log"
-SNAPSHOT = "./snapshot"
-if not os.path.exists(LOG):
-  os.makedirs(LOG)
-if not os.path.exists(SNAPSHOT):
-  os.makedirs(SNAPSHOT)
 
 class Features:
     """
@@ -662,6 +656,28 @@ def visualize(dt, env):
         time.sleep(0.2)
         pyglet.app.exit()
 
+def setup_env(targets, defenders):
+    targets = targets
+    defenders = defenders
+    ts_size = 3  # minutes
+    sim_length = 100  # minutes
+    total_steps = int(sim_length/ts_size)
+
+    DEFENDER_DETECTION_RADIUS = 400.  # km
+    DEFENDER_INTERCEPTION_RADIUS = 160.  # km
+
+    f = Features(target_count=targets, defender_count=defenders)
+
+    # Initialize wrapper
+    w = wrapper.Wrapper(target_count=targets, defender_count=defenders)
+    w.init_input(f, DEFENDER_DETECTION_RADIUS, DEFENDER_INTERCEPTION_RADIUS)
+
+    env = Simulation(features=f, time_step_size=ts_size, wrapper=w)
+
+    window = pyglet.window.Window(width=1000, height=1000)
+    pyglet.clock.schedule(visualize, env=env)
+    return env
+
 
 if __name__ == '__main__':
     targets = 8
@@ -680,11 +696,6 @@ if __name__ == '__main__':
     w.init_input(f, DEFENDER_DETECTION_RADIUS, DEFENDER_INTERCEPTION_RADIUS)
 
     env = Simulation(features=f, time_step_size=ts_size, wrapper=w)
-
-    #Setup Tensorflow
-    config = tf.ConfigProto(allow_soft_placement=True)
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
 
     window = pyglet.window.Window(width=1000, height=1000)
 

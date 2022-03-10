@@ -8,7 +8,7 @@ import tensorflow as tf
 import tensorflow.contrib.layers as layers
 
 
-def build_fcn(minimap, screen, info, msize, ssize, num_action):
+def build_fcn(minimap, screen, info, image_size, num_action):
   # Extract features
   mconv1 = layers.conv2d(tf.transpose(minimap, [0, 2, 3, 1]),
                          num_outputs=16,

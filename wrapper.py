@@ -88,12 +88,13 @@ class Wrapper:
                                    self.target_value_image), axis=0)
 
         screen = numpy.concatenate((screen, self.attacker_position_image), axis=0)
-
         filler = numpy.zeros((13, self.image_size, self.image_size), dtype=int)
-
         screen = numpy.concatenate((screen, filler), axis=0)
-        minimap = numpy.zeros((17, self.image_size, self.image_size), dtype=int)
-        info = numpy.zeros(524, dtype=int)
+        screen = numpy.expand_dims(screen, axis=0)
+
+        minimap = numpy.zeros((1, 17, self.image_size, self.image_size), dtype=int)
+
+        info = numpy.zeros((1, 524), dtype=int)
 
         return screen, minimap, info
 
