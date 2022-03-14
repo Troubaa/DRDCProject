@@ -64,6 +64,13 @@ class Wrapper:
         self.target_value_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
 
     def init_input(self, features, detectionRadius, interceptionRadius):
+        """
+             Initializes the Images which dont change after a step in the simulation
+         :param features: contains all the necessary features of the simulation
+         :param detectionradius: the radius in which a defender can detect
+         :param interceptionRadius: the radius in which a defender can intercept a missile
+         :return: Nothing
+         """
         self.update_def_det_image(features, detectionRadius)
         self.update_def_int_image(features, interceptionRadius)
         self.update_def_pos_image(features)
@@ -74,6 +81,12 @@ class Wrapper:
         self.write_target_screen()
 
     def step_update(self, features, defender_opportunities):
+        """
+             updates the necessary images after each step in the simulation
+         :param features: contains all the necessary features of the simulation
+         :param defender_opportunities: contains all the opportunities a defender can take.
+         :return: Nothing
+         """
         self.update_def_op_image(defender_opportunities)
         self.update_attacker_pos_image(features)
         self.update_target_value_image(features)
@@ -81,6 +94,11 @@ class Wrapper:
         self.write_target_screen()
 
     def generate_network_input(self):
+        """
+             Converts the obtained information from the simulation into a new format thats readable
+             by the StarCraft 2 environment.
+         :return: Nothing
+         """
         #Stack collected information from the simulator
         screen = numpy.stack((self.defender_detection_image, self.defender_interception_image,
                                    self.defender_position_image, self.target_position_image,
@@ -97,6 +115,8 @@ class Wrapper:
         info = numpy.zeros((1, 524), dtype=int)
 
         return screen, minimap, info
+
+
 
     def update_def_det_image(self, features, radius):
         """
@@ -215,6 +235,11 @@ class Wrapper:
             self.defender_position_image[y][x] = 1
 
     def update_target_pos_image(self, features):
+        """
+            Updates the target position image.
+        :param features: contains all the necessary features of the simulation
+        :return: Nothing
+        """
 
         self.target_position_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
 
@@ -230,6 +255,12 @@ class Wrapper:
             self.target_position_image[y][x] = 1
 
     def update_attacker_pos_image(self, features):
+        """
+            Updates the attacker position image. While containing the previous 2 timesteps in order
+            to determine the direction in which the missile is moving
+        :param features: contains all the necessary features of the simualtion
+        :return: Nothing
+        """
 
         self.attacker_position_image[2] = self.attacker_position_image[1]
         self.attacker_position_image[1] = self.attacker_position_image[0]
@@ -248,7 +279,11 @@ class Wrapper:
                 self.attacker_position_image[0][y][x] = 1
 
     def update_cml_pos_image(self, features):
-
+        """
+            Updates the cruise missile launcher position image.
+        :param features: contains all the necessary features of the simualtion
+        :return: Nothing
+        """
         self.cml_position_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
 
         for cml in features.cml:
@@ -263,7 +298,11 @@ class Wrapper:
             self.cml_position_image[y][x] = 1
 
     def update_target_value_image(self, features):
-
+        """
+            Updates the target value image.
+        :param features: contains all the necessary features of the simualtion
+        :return: Nothing
+        """
         self.target_value_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
 
         for target in features.targets:
