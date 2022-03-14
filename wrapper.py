@@ -1,6 +1,98 @@
 import numpy
+import numpy as np
+import enum
+import collections
 import tensorflow as tf
 from network import build_fcn
+
+"""
+Author - Noah Sweetnam
+2022-01-12
+Wrapper.py - This file contains...
+"""
+
+class FeatureType(enum.Enum):
+  SCALAR = 1
+  CATEGORICAL = 2
+
+class StepType(enum.IntEnum):
+  """Defines the status of a `TimeStep` within a sequence."""
+  # Denotes the first `TimeStep` in a sequence.
+  FIRST = 0
+  # Denotes any `TimeStep` in a sequence that is not FIRST or LAST.
+  MID = 1
+  # Denotes the last `TimeStep` in a sequence.
+  LAST = 2
+
+class ScreenFeatures(collections.namedtuple("ScreenFeatures", [
+    "height_map", "visibility_map", "creep", "power", "player_id",
+    "player_relative", "unit_type", "selected", "unit_hit_points",
+    "unit_energy", "unit_shields", "unit_density", "unit_density_aa"])):
+  """The set of screen feature layers."""
+  pass
+
+class MinimapFeatures(collections.namedtuple("MinimapFeatures", [
+    "height_map", "visibility_map", "creep", "camera", "player_id",
+    "player_relative", "selected"])):
+  """The set of minimap feature layers."""
+  pass
+
+SCREEN_FEATURES = ScreenFeatures(
+    height_map=(256, FeatureType.SCALAR),
+    visibility_map=(4, FeatureType.CATEGORICAL),
+    creep=(2, FeatureType.CATEGORICAL),
+    power=(2, FeatureType.CATEGORICAL),
+    player_id=(17, FeatureType.CATEGORICAL),
+    player_relative=(5, FeatureType.CATEGORICAL),
+    unit_type=(1850, FeatureType.CATEGORICAL),
+    selected=(2, FeatureType.CATEGORICAL),
+    unit_hit_points=(1600, FeatureType.SCALAR),
+    unit_energy=(1000, FeatureType.SCALAR),
+    unit_shields=(1000, FeatureType.SCALAR),
+    unit_density=(16, FeatureType.SCALAR),
+    unit_density_aa=(256, FeatureType.SCALAR),
+)
+
+MINIMAP_FEATURES = MinimapFeatures(
+    height_map=(256, FeatureType.SCALAR),
+    visibility_map=(4, FeatureType.CATEGORICAL),
+    creep=(2, FeatureType.CATEGORICAL),
+    camera=(2, FeatureType.CATEGORICAL),
+    player_id=(17, FeatureType.CATEGORICAL),
+    player_relative=(5, FeatureType.CATEGORICAL),
+    selected=(2, FeatureType.CATEGORICAL),
+)
+
+class TimeStep(collections.namedtuple(
+    'TimeStep', ['step_type', 'reward', 'discount', 'observation'])):
+  """Returned with every call to `step` and `reset` on an environment.
+
+  A `TimeStep` contains the data emitted by an environment at each step of
+  interaction. A `TimeStep` holds a `step_type`, an `observation`, and an
+  associated `reward` and `discount`.
+
+  The first `TimeStep` in a sequence will have `StepType.FIRST`. The final
+  `TimeStep` will have `StepType.LAST`. All other `TimeStep`s in a sequence will
+  have `StepType.MID.
+
+  Attributes:
+    step_type: A `StepType` enum value.
+    reward: A scalar, or `None` if `step_type` is `StepType.FIRST`, i.e. at the
+      start of a sequence.
+    discount: A discount value in the range `[0, 1]`, or `None` if `step_type`
+      is `StepType.FIRST`, i.e. at the start of a sequence.
+    observation: A NumPy array, or a dict, list or tuple of arrays.
+  """
+  __slots__ = ()
+
+  def first(self):
+    return self.step_type is StepType.FIRST
+
+  def mid(self):
+    return self.step_type is StepType.MID
+
+  def last(self):
+    return self.step_type is StepType.LAST
 
 class Wrapper:
     """
@@ -38,7 +130,7 @@ class Wrapper:
             Categorical image the contains the position of all possible opportunities. NOTE - Grabbed from defender_actions in Steps method.
     """
 
-    def __init__(self, target_count, defender_count, image_size=64):
+    def __init__(self, target_count, defender_count, discount, image_size=64):
         """
         input parameters:
             target_count : int
@@ -48,6 +140,8 @@ class Wrapper:
             image_size : int
                 Size of the generated images
         """
+        self.state = StepType.FIRST
+        self.discount = discount
         self.defender_count = defender_count
         self.target_count = target_count
         self.image_size = image_size
@@ -63,12 +157,12 @@ class Wrapper:
         self.opportunity_position_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
         self.target_value_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
 
-    def init_input(self, features, detectionRadius, interceptionRadius):
+    def init_input(self, features, detectionRadius=400 , interceptionRadius=160):
         """
              Initializes the Images which dont change after a step in the simulation
          :param features: contains all the necessary features of the simulation
-         :param detectionradius: the radius in which a defender can detect
-         :param interceptionRadius: the radius in which a defender can intercept a missile
+         :param detectionradius: the radius in which a defender can detect. 400km ASSUMPTION FROM SIMULATOR
+         :param interceptionRadius: the radius in which a defender can intercept a missile. 160km ASSUMPTION FROM SIMULATOR
          :return: Nothing
          """
         self.update_def_det_image(features, detectionRadius)
@@ -80,6 +174,7 @@ class Wrapper:
         self.generate_network_input()
         self.write_target_screen()
 
+    #TODO - RECONFIRM THAT DEFENDER OPPORTUNITIES IS THE CORRECT INFORMATION WANTED.
     def step_update(self, features, defender_opportunities):
         """
              updates the necessary images after each step in the simulation
@@ -116,6 +211,84 @@ class Wrapper:
 
         return screen, minimap, info
 
+    def observation_spec(self):
+        """The observation spec for the SC2 environment.
+
+        Returns:
+          The dict of observation names to their tensor shapes. Shapes with a 0 can
+          vary in length, for example the number of valid actions depends on which
+          units you have selected.
+        """
+        screen, minimap, info = self.generate_network_input()
+
+        return {
+            "single_select": np.zeros((0, 7), dtype=int),  # Actually only (n, 7) for n in (0, 1)
+            "multi_select": np.zeros((0, 7), dtype=int),
+            "build_queue": np.zeros((0, 7), dtype=int),
+            "cargo": np.zeros((0, 7), dtype=int),
+            "cargo_slots_available": np.zeros((1,), dtype=int),
+            "screen": screen,
+            "minimap": minimap,
+            "game_loop": np.zeros((1,), dtype=int),
+            "score_cumulative": np.zeros((13,), dtype=int),
+            "player": np.zeros((11,), dtype=int),
+            "control_groups": np.zeros((10, 2), dtype=int),
+            # Need to fill the available_actions with at least one action. (0 = no_op assuming it means no option/action)
+            "available_actions": np.zeros((1,), dtype=int),  # original = np.zeros((0,), dtype=int)
+        }
+
+    def generate_timestep(self, state, reward, discount):
+        """Generates an empty timestep for testing purposes.
+
+        Returns:
+          A `TimeStep` namedtuple containing:
+            step_type: A `StepType` of `FIRST/MID/LAST`.
+            reward: `None`, indicating the reward is undefined.
+            discount: `None`, indicating the discount is undefined.
+            observation: A NumPy array, or a dict, list or tuple of arrays
+              corresponding to `observation_spec()`
+        """
+        observation = self.observation_spec()
+        return (TimeStep(step_type=state, reward=reward, discount=discount, observation=observation),)
+
+    def reset(self, env):
+        """Starts a new sequence and returns the first `TimeStep` of this sequence.
+
+        Returns:
+          A `TimeStep` namedtuple containing:
+            step_type: A `StepType` of `FIRST`.
+            reward: `None`, indicating the reward is undefined.
+            discount: `None`, indicating the discount is undefined.
+            observation: A NumPy array, or a dict, list or tuple of arrays
+              corresponding to `observation_spec()`.
+        """
+        features, defDetectionRadius, defInterceptRadius, reward = env.reset()
+        #initialize the new environment.
+        self.init_input(features, defDetectionRadius, defDetectionRadius)
+        self.state = StepType.FIRST
+
+        return(self.generate_timestep(self.state, reward, self.discount))
+
+    def step(self, env, defender_action, attacker_action):
+        """Updates the environment according to the action and returns a `TimeStep`.
+
+        Returns:
+          A `TimeStep` namedtuple containing:
+            step_type: A `StepType` value.
+            reward: Reward at this timestep.
+            discount: A discount in the range [0, 1].
+            observation: A NumPy array, or a dict, list or tuple of arrays
+              corresponding to `observation_spec()`.
+        """
+        features, defender_opportunities, reward, done, info = env.step(defender_action, attacker_action)
+        #Update wrapper images.
+        self.step_update(features, defender_opportunities)
+        if done:
+            self.state = StepType.LAST
+        else:
+            self.state = StepType.MID
+
+        return(self.generate_timestep(self.state, reward, self.discount))
 
 
     def update_def_det_image(self, features, radius):
