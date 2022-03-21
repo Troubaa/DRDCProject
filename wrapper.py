@@ -3,6 +3,8 @@ import numpy as np
 import enum
 import collections
 import sys
+import actions
+import six
 import tensorflow as tf
 from network import build_fcn
 numpy.set_printoptions(threshold=sys.maxsize)
@@ -213,6 +215,14 @@ class Wrapper:
 
         return screen, minimap, info
 
+    def available_actions(self):
+        """Return the list of available action ids."""
+        available_actions = set()
+        for i, func in six.iteritems(actions.FUNCTIONS_AVAILABLE):
+            if func.avail_fn(actions.FUNCTIONS):
+                available_actions.add(i)
+        return list(available_actions)
+
     def observation_spec(self):
         """The observation spec for the SC2 environment.
 
@@ -236,7 +246,7 @@ class Wrapper:
             "player": np.zeros((11,), dtype=int),
             "control_groups": np.zeros((10, 2), dtype=int),
             # Need to fill the available_actions with at least one action. (0 = no_op assuming it means no option/action)
-            "available_actions": np.zeros((1,), dtype=int),  # original = np.zeros((0,), dtype=int)
+            "available_actions": np.array(self.available_actions(), dtype=np.int32),
         }
 
     def generate_timestep(self, state, reward, discount):
@@ -269,6 +279,8 @@ class Wrapper:
         self.init_input(features, defDetectionRadius, defDetectionRadius)
         self.state = StepType.FIRST
 
+        print(reward)
+
         return(self.generate_timestep(self.state, reward, self.discount))
 
     def step(self, env, defender_action, attacker_action):
@@ -283,7 +295,9 @@ class Wrapper:
               corresponding to `observation_spec()`.
         """
 
-        features, defender_opportunities, reward, done, info = env.step(defender_action, attacker_action)
+        #(attacker_action[0][0] - 1) returns the index for the target we wish to fire upon, 0 no action, 1-8 target
+        #accepted values for index of a target though is 0-7 hence the minus 1.
+        features, defender_opportunities, reward, done, info = env.step(defender_action, (attacker_action[0][0] - 1))
         #Update wrapper images.
         self.step_update(features, defender_opportunities)
         if done:
@@ -291,6 +305,7 @@ class Wrapper:
         else:
             self.state = StepType.MID
 
+        print(reward)
         return(self.generate_timestep(self.state, reward, self.discount))
 
 

@@ -38,8 +38,8 @@ flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
 flags.DEFINE_string("log_path", "./log/", "Path for log.")
 flags.DEFINE_string("device", "0", "Device for training.")
 
-flags.DEFINE_string("map", "MoveToBeacon", "Name of a map to use.")
-flags.DEFINE_bool("render", True, "Whether to render with pygame.")
+flags.DEFINE_string("log_name", "DRDCSimulator", "Name of a simulator used (Different versions/updates made).")
+flags.DEFINE_bool("render", True, "Whether to render with visuals.")
 flags.DEFINE_integer("screen_resolution", 64, "Resolution for screen feature layers.")
 flags.DEFINE_integer("minimap_resolution", 64, "Resolution for minimap feature layers.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
@@ -49,18 +49,16 @@ flags.DEFINE_string("net", "fcn", "atari or fcn.")
 flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
 flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
 flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(), "Bot's strength.")
-flags.DEFINE_integer("max_agent_steps", 360, "Total agent steps.")
+flags.DEFINE_integer("max_agent_steps", 50, "Total agent steps.")
 
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
 flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
 flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
 
-flags.DEFINE_integer("targets", 8, "Number of targets")
-flags.DEFINE_integer("defenders", 6, "Number of defenders")
-flags.DEFINE_integer("sim_length", 150, "Minutes")
-flags.DEFINE_integer("ts_size", 1, "Minutes")
-#flags.DEFINE_integer("total_steps", int(FLAGS.sim_length/FLAGS.ts_size), "Minutes")
+flags.DEFINE_integer("targets", 8, "Number of targets (should not change)")
+flags.DEFINE_integer("defenders", 6, "Number of defenders (should not change)")
+flags.DEFINE_integer("ts_size", 5, "Minutes")
 
 
 FLAGS(sys.argv)
@@ -74,15 +72,15 @@ else:
   MAX_AGENT_STEPS = 1e5
   DEVICE = ['/cpu:0']
 
-LOG = FLAGS.log_path+FLAGS.map+'/'+FLAGS.net
-SNAPSHOT = FLAGS.snapshot_path+FLAGS.map+'/'+FLAGS.net
+LOG = FLAGS.log_path+FLAGS.log_name+'/'+FLAGS.net
+SNAPSHOT = FLAGS.snapshot_path+FLAGS.log_name+'/'+FLAGS.net
 if not os.path.exists(LOG):
   os.makedirs(LOG)
 if not os.path.exists(SNAPSHOT):
   os.makedirs(SNAPSHOT)
 
 
-def run_thread(agent, map_name, visualize):
+def run_thread(agent, render):
   with MissileEnv(
     features=Features(target_count=FLAGS.targets, defender_count=FLAGS.defenders), time_step_size=FLAGS.ts_size,
           wrapper=Wrapper(target_count=FLAGS.targets, defender_count=FLAGS.defenders, discount=FLAGS.discount)) as env:
@@ -90,7 +88,7 @@ def run_thread(agent, map_name, visualize):
 
     # Only for a single player!
     replay_buffer = []
-    for recorder, is_done in run_loop([agent], env, MAX_AGENT_STEPS):
+    for recorder, is_done in run_loop([agent], env, render, MAX_AGENT_STEPS):
       if FLAGS.training:
         replay_buffer.append(recorder)
         if is_done:
@@ -213,8 +211,6 @@ def _main(unused_argv):
   stopwatch.sw.enabled = FLAGS.profile or FLAGS.trace
   stopwatch.sw.trace = FLAGS.trace
 
-  maps.get(FLAGS.map)  # Assert the map exists.
-
   # Setup agents
   agent_module, agent_name = FLAGS.agent.rsplit(".", 1)
   agent_cls = getattr(importlib.import_module(agent_module), agent_name)
@@ -242,13 +238,13 @@ def _main(unused_argv):
   # Run threads
   threads = []
   for i in range(PARALLEL - 1):
-    t = threading.Thread(target=run_thread, args=(agents[i], FLAGS.map, False))
+    t = threading.Thread(target=run_thread, args=(agents[i], FLAGS.log_name, False))
     threads.append(t)
     t.daemon = True
     t.start()
     time.sleep(5)
 
-  run_thread(agents[-1], FLAGS.map, FLAGS.render)
+  run_thread(agents[-1], FLAGS.render)
 
   for t in threads:
     t.join()

@@ -8,7 +8,7 @@ import os
 import numpy
 import numpy as np
 import tensorflow as tf
-from pysc2.lib import actions
+import actions
 
 from network import build_net
 import utils as U
@@ -146,7 +146,7 @@ class A3CAgent(object):
 
     target = [int(target // self.ssize), int(target % self.ssize)]
 
-    if False:
+    if True:
       print(actions.FUNCTIONS[act_id].name, target)
 
     #TODO - Ignore for now.
@@ -171,16 +171,17 @@ class A3CAgent(object):
 
   def update(self, rbs, disc, lr, cter):
     # Compute R, which is value of the last observation
+    print("UPDATE_____________________________________________________________________________")
     obs = rbs[-1][-1]
     if obs.last():
       R = 0
     else:
       minimap = np.array(obs.observation['minimap'], dtype=np.float32)
       #minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
-      minimap = np.expand_dims(minimap, axis=0)
+      #minimap = np.expand_dims(minimap, axis=0)
       screen = np.array(obs.observation['screen'], dtype=np.float32)
       #screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-      screen = np.expand_dims(screen, axis=0)
+      #screen = np.expand_dims(screen, axis=0)
       info = np.zeros([1, self.isize], dtype=np.float32)
       info[0, obs.observation['available_actions']] = 1
 
@@ -208,10 +209,10 @@ class A3CAgent(object):
     for i, [obs, action, next_obs] in enumerate(rbs):
       minimap = np.array(obs.observation['minimap'], dtype=np.float32)
       #minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
-      minimap = np.expand_dims(minimap, axis=0)
+      #minimap = np.expand_dims(minimap, axis=0)
       screen = np.array(obs.observation['screen'], dtype=np.float32)
       #screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-      screen = np.expand_dims(screen, axis=0)
+      #screen = np.expand_dims(screen, axis=0)
       info = np.zeros([1, self.isize], dtype=np.float32)
       info[0, obs.observation['available_actions']] = 1
 
@@ -224,7 +225,6 @@ class A3CAgent(object):
       act_args = action.arguments
 
       value_target[i] = reward + disc * value_target[i-1]
-
       valid_actions = obs.observation["available_actions"]
       valid_non_spatial_action[i, valid_actions] = 1
       non_spatial_action_selected[i, act_id] = 1

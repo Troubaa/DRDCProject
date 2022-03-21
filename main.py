@@ -656,11 +656,7 @@ class MissileEnv(gym.Env):
         # Decrementing interception event times
         self.decrement_interception_event_list()
         # Assuming negative attacker_action is equivalent to 'do nothing', otherwise action holds idx of target
-
-        retActions = attacker_action[1]
-        print(retActions)
-
-        attacker_action = attacker_action[0]
+        attacker_action = attacker_action
         if attacker_action > -1:
             self.cruise_missile_launch(attacker_action)
         if defender_actions:
