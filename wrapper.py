@@ -2,8 +2,10 @@ import numpy
 import numpy as np
 import enum
 import collections
+import sys
 import tensorflow as tf
 from network import build_fcn
+numpy.set_printoptions(threshold=sys.maxsize)
 
 """
 Author - Noah Sweetnam
@@ -171,7 +173,7 @@ class Wrapper:
         self.update_target_pos_image(features)
         self.update_cml_pos_image(features)
         self.update_attacker_pos_image(features)
-        self.generate_network_input()
+        #self.generate_network_input()
         self.write_target_screen()
 
     #TODO - RECONFIRM THAT DEFENDER OPPORTUNITIES IS THE CORRECT INFORMATION WANTED.
@@ -185,7 +187,7 @@ class Wrapper:
         self.update_def_op_image(defender_opportunities)
         self.update_attacker_pos_image(features)
         self.update_target_value_image(features)
-        self.generate_network_input()
+        #self.generate_network_input()
         self.write_target_screen()
 
     def generate_network_input(self):
@@ -280,6 +282,7 @@ class Wrapper:
             observation: A NumPy array, or a dict, list or tuple of arrays
               corresponding to `observation_spec()`.
         """
+
         features, defender_opportunities, reward, done, info = env.step(defender_action, attacker_action)
         #Update wrapper images.
         self.step_update(features, defender_opportunities)
@@ -459,7 +462,7 @@ class Wrapper:
         """
         self.cml_position_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
 
-        for cml in features.cml:
+        for cml in features.attacker_launcher:
             x, y = cml[0:2] * self.ratio
             x = int(x)
             y = int(y)

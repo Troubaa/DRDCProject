@@ -120,10 +120,10 @@ class A3CAgent(object):
   def step(self, obs):
     minimap = np.array(obs.observation['minimap'], dtype=np.float32)
     #minimap = np.expand_dims(U.preprocess_minimap(minimap), axis=0)
-    minimap = np.expand_dims(minimap, axis=0)
+    #minimap = np.expand_dims(minimap, axis=0)
     screen = np.array(obs.observation['screen'], dtype=np.float32)
     #screen = np.expand_dims(U.preprocess_screen(screen), axis=0)
-    screen = np.expand_dims(screen, axis=0)
+    #screen = np.expand_dims(screen, axis=0)
 
     # TODO: only use available actions
     info = np.zeros([1, self.isize], dtype=np.float32)
@@ -137,9 +137,10 @@ class A3CAgent(object):
       feed_dict=feed)
 
     # Select an action and a spatial target
-    non_spatial_action = non_spatial_action.ravel()
-    spatial_action = spatial_action.ravel()
+    non_spatial_action = non_spatial_action.ravel() # flat array  -- size?
+    spatial_action = spatial_action.ravel() # change to flat
     valid_actions = obs.observation['available_actions']
+    #
     act_id = valid_actions[np.argmax(non_spatial_action[valid_actions])]
     target = np.argmax(spatial_action)
 
@@ -148,6 +149,7 @@ class A3CAgent(object):
     if False:
       print(actions.FUNCTIONS[act_id].name, target)
 
+    #TODO - Ignore for now.
     # Epsilon greedy exploration
     if self.training and np.random.rand() < self.epsilon[0]:
       act_id = np.random.choice(valid_actions)

@@ -19,6 +19,7 @@ import tensorflow as tf
 from run_loop import run_loop
 from main import MissileEnv
 from main import Features
+from wrapper import Wrapper
 
 SCORE = []
 POLICY = []
@@ -43,7 +44,7 @@ flags.DEFINE_integer("screen_resolution", 64, "Resolution for screen feature lay
 flags.DEFINE_integer("minimap_resolution", 64, "Resolution for minimap feature layers.")
 flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 
-flags.DEFINE_string("agent", "agents.a3c_agent.A3CAgent", "Which agent to run.")
+flags.DEFINE_string("agent", "a3c_agent.A3CAgent", "Which agent to run.")
 flags.DEFINE_string("net", "fcn", "atari or fcn.")
 flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
 flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
@@ -59,7 +60,7 @@ flags.DEFINE_integer("targets", 8, "Number of targets")
 flags.DEFINE_integer("defenders", 6, "Number of defenders")
 flags.DEFINE_integer("sim_length", 150, "Minutes")
 flags.DEFINE_integer("ts_size", 1, "Minutes")
-flags.DEFINE_integer("total_steps", int(FLAGS.sim_length/FLAGS.ts_size), "Minutes")
+#flags.DEFINE_integer("total_steps", int(FLAGS.sim_length/FLAGS.ts_size), "Minutes")
 
 
 FLAGS(sys.argv)
@@ -83,8 +84,9 @@ if not os.path.exists(SNAPSHOT):
 
 def run_thread(agent, map_name, visualize):
   with MissileEnv(
-    features=Features()) as env:
-    env = available_actions_printer.AvailableActionsPrinter(env)
+    features=Features(target_count=FLAGS.targets, defender_count=FLAGS.defenders), time_step_size=FLAGS.ts_size,
+          wrapper=Wrapper(target_count=FLAGS.targets, defender_count=FLAGS.defenders, discount=FLAGS.discount)) as env:
+    #env = available_actions_printer.AvailableActionsPrinter(env)
 
     # Only for a single player!
     replay_buffer = []

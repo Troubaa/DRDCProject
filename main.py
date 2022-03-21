@@ -225,7 +225,7 @@ class MissileEnv(gym.Env):
             # could probably be oversized and padded later. Max opportunities for one defender are therefore
             # 2*(attacker ammunition)
             self.defender_action_space.append(spaces.Discrete(2 * self.features.attacker_launcher_ammunition + 1))
-        print(self.defender_action_space[0].n)
+        #print(self.defender_action_space[0].n)
         # Attacker action space is to fire at a target index, or do nothing
         self.attacker_action_space = spaces.Discrete(self.features.target_count + 1)
         # Attacker observation to be the targets information
@@ -238,6 +238,9 @@ class MissileEnv(gym.Env):
 
         #A2C/A3C Wrapper
         self.wrapper = wrapper
+
+    def return_wrapper(self):
+        return self.wrapper
 
     def print_env(self):
         """
@@ -623,6 +626,8 @@ class MissileEnv(gym.Env):
         # Attacker observation
         obs_att = self.features.targets.flatten()
 
+        #update wrapper
+
         observation = [obs_def, obs_att]
         self.done = False
         self.info = []
@@ -651,6 +656,11 @@ class MissileEnv(gym.Env):
         # Decrementing interception event times
         self.decrement_interception_event_list()
         # Assuming negative attacker_action is equivalent to 'do nothing', otherwise action holds idx of target
+
+        retActions = attacker_action[1]
+        print(retActions)
+
+        attacker_action = attacker_action[0]
         if attacker_action > -1:
             self.cruise_missile_launch(attacker_action)
         if defender_actions:
@@ -670,6 +680,9 @@ class MissileEnv(gym.Env):
         # Attacker observation
         obs_att = self.features.targets.flatten()
 
+        #update wrapper
+        self.wrapper.step_update(self.features, self.defender_opportunities)
+
         observation = [obs_def, obs_att]
         done = self.done
         reward = -self.reward
@@ -682,6 +695,13 @@ class MissileEnv(gym.Env):
 
     def close(self):
         ...
+
+    def random_defender_actions(self, defender_quantity, attacker_quantity):
+        action_list = []
+        for defender in range(defender_quantity):
+            action_list.append(randint(0, attacker_quantity + 1))
+            # action_list.append(1)
+        return action_list
 
 
 def visualize(dt, env):
@@ -788,12 +808,12 @@ def random_defender_actions(defender_quantity, attacker_quantity):
 if __name__ == '__main__':
     targets = 24
     defenders = 10
-    ts_size = 1  # minutes
+    ts_size = 1 # minutes
     sim_length = 150  # minutes
     total_steps = int(sim_length / ts_size)
 
     f = Features(target_count=targets, defender_count=defenders)
-    wrapper = wrapper.Wrapper(targets, defenders)
+    wrapper = wrapper.Wrapper(targets, defenders, 0.99)
     wrapper.init_input(f)
     env = MissileEnv(features=f, time_step_size=ts_size, wrapper=wrapper)
 
