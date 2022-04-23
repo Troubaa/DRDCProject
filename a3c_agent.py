@@ -29,6 +29,7 @@ class A3CAgent(object):
     self.valueTensor = None
     self.policyLoss = None
     self.valueLoss = None
+    self.score = None
 
 
   #return the policy loss and value loss variables to generate a graph over game iterations.
@@ -146,9 +147,6 @@ class A3CAgent(object):
 
     target = [int(target // self.ssize), int(target % self.ssize)]
 
-    if True:
-      print(actions.FUNCTIONS[act_id].name, target)
-
     #TODO - Ignore for now.
     # Epsilon greedy exploration
     if self.training and np.random.rand() < self.epsilon[0]:
@@ -158,6 +156,9 @@ class A3CAgent(object):
       target[0] = int(max(0, min(self.ssize-1, target[0]+dy)))
       dx = np.random.randint(-4, 5)
       target[1] = int(max(0, min(self.ssize-1, target[1]+dx)))
+
+    if True:
+      print(actions.FUNCTIONS[act_id].name, target)
 
     # Set act_id and act_args
     act_args = []

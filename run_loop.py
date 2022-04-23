@@ -113,6 +113,7 @@ def run_loop(agents, env, render, max_frames=0):
   start_time = time.time()
 
   wrapper = env.return_wrapper()
+  env.print_env()
 
   try:
     while True:
@@ -130,8 +131,8 @@ def run_loop(agents, env, render, max_frames=0):
         num_frames += 1
         last_timesteps = timesteps
         actions = [agent.step(timestep) for agent, timestep in zip(agents, timesteps)]
-        timesteps = wrapper.step(env, env.random_defender_actions(env.features.defender_count, env.features.attacker_launcher_ammunition), actions)
-
+        timesteps = wrapper.step(env, env.greedy_defender_actions(), actions)
+        print("step:", num_frames)
         #to render simulation
         if render:
           pyglet.clock.tick()

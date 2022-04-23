@@ -151,6 +151,7 @@ class Wrapper:
         self.image_size = image_size
         self.maxCoordinate = 1000
         self.ratio = image_size/self.maxCoordinate
+        self.score = 0
 
         self.defender_detection_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
         self.defender_interception_image = numpy.zeros((self.image_size, self.image_size), dtype=int)
@@ -190,7 +191,7 @@ class Wrapper:
         self.update_attacker_pos_image(features)
         self.update_target_value_image(features)
         #self.generate_network_input()
-        self.write_target_screen()
+        #self.write_target_screen()
 
     def generate_network_input(self):
         """
@@ -199,19 +200,20 @@ class Wrapper:
          :return: Nothing
          """
         #Stack collected information from the simulator
+        self.write_defender_interception()
         screen = numpy.stack((self.defender_detection_image, self.defender_interception_image,
                                    self.defender_position_image, self.target_position_image,
                                    self.cml_position_image, self.opportunity_position_image,
                                    self.target_value_image), axis=0)
 
         screen = numpy.concatenate((screen, self.attacker_position_image), axis=0)
-        filler = numpy.zeros((13, self.image_size, self.image_size), dtype=int)
+        filler = numpy.zeros((13, self.image_size, self.image_size), dtype=np.int32)
         screen = numpy.concatenate((screen, filler), axis=0)
         screen = numpy.expand_dims(screen, axis=0)
 
-        minimap = numpy.zeros((1, 17, self.image_size, self.image_size), dtype=int)
+        minimap = numpy.zeros((1, 17, self.image_size, self.image_size), dtype=np.int32)
 
-        info = numpy.zeros((1, 524), dtype=int)
+        info = numpy.zeros((1, 524), dtype=np.int32)
 
         return screen, minimap, info
 
@@ -223,7 +225,7 @@ class Wrapper:
                 available_actions.add(i)
         return list(available_actions)
 
-    def observation_spec(self):
+    def observation_spec(self, reward):
         """The observation spec for the SC2 environment.
 
         Returns:
@@ -233,18 +235,23 @@ class Wrapper:
         """
         screen, minimap, info = self.generate_network_input()
 
+        #for updating the score_cumulative
+        self.score += reward
+        tmpReward = np.zeros((13,), dtype=np.int32)
+        tmpReward[0] = self.score
+
         return {
-            "single_select": np.zeros((0, 7), dtype=int),  # Actually only (n, 7) for n in (0, 1)
-            "multi_select": np.zeros((0, 7), dtype=int),
-            "build_queue": np.zeros((0, 7), dtype=int),
-            "cargo": np.zeros((0, 7), dtype=int),
-            "cargo_slots_available": np.zeros((1,), dtype=int),
+            "single_select": np.zeros((0, 7), dtype=np.int32),  # Actually only (n, 7) for n in (0, 1)
+            "multi_select": np.zeros((0, 7), dtype=np.int32),
+            "build_queue": np.zeros((0, 7), dtype=np.int32),
+            "cargo": np.zeros((0, 7), dtype=np.int32),
+            "cargo_slots_available": np.zeros((1,), dtype=np.int32),
             "screen": screen,
             "minimap": minimap,
-            "game_loop": np.zeros((1,), dtype=int),
-            "score_cumulative": np.zeros((13,), dtype=int),
-            "player": np.zeros((11,), dtype=int),
-            "control_groups": np.zeros((10, 2), dtype=int),
+            "game_loop": np.zeros((1,), dtype=np.int32),
+            "score_cumulative": tmpReward,
+            "player": np.zeros((11,), dtype=np.int32),
+            "control_groups": np.zeros((10, 2), dtype=np.int32),
             # Need to fill the available_actions with at least one action. (0 = no_op assuming it means no option/action)
             "available_actions": np.array(self.available_actions(), dtype=np.int32),
         }
@@ -260,7 +267,7 @@ class Wrapper:
             observation: A NumPy array, or a dict, list or tuple of arrays
               corresponding to `observation_spec()`
         """
-        observation = self.observation_spec()
+        observation = self.observation_spec(reward)
         return (TimeStep(step_type=state, reward=reward, discount=discount, observation=observation),)
 
     def reset(self, env):
@@ -276,14 +283,14 @@ class Wrapper:
         """
         features, defDetectionRadius, defInterceptRadius, reward = env.reset()
         #initialize the new environment.
-        self.init_input(features, defDetectionRadius, defDetectionRadius)
+        #reset score back to zero
+        self.score = 0
+        self.init_input(features, defDetectionRadius, defInterceptRadius)
         self.state = StepType.FIRST
-
-        print(reward)
 
         return(self.generate_timestep(self.state, reward, self.discount))
 
-    def step(self, env, defender_action, attacker_action):
+    def step(self, env, defender_actions, attacker_action):
         """Updates the environment according to the action and returns a `TimeStep`.
 
         Returns:
@@ -297,7 +304,7 @@ class Wrapper:
 
         #(attacker_action[0][0] - 1) returns the index for the target we wish to fire upon, 0 no action, 1-8 target
         #accepted values for index of a target though is 0-7 hence the minus 1.
-        features, defender_opportunities, reward, done, info = env.step(defender_action, (attacker_action[0][0] - 1))
+        features, defender_opportunities, reward, done, info = env.step(defender_actions, (attacker_action[0][0] - 1))
         #Update wrapper images.
         self.step_update(features, defender_opportunities)
         if done:
@@ -305,7 +312,6 @@ class Wrapper:
         else:
             self.state = StepType.MID
 
-        print(reward)
         return(self.generate_timestep(self.state, reward, self.discount))
 
 

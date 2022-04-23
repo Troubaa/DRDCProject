@@ -176,6 +176,23 @@ FUNCTIONS = Functions([
     Function.ui_func(6, "attack_target_6", select_point),
     Function.ui_func(7, "attack_target_7", select_point),
     Function.ui_func(8, "attack_target_8", select_point),
+    Function.ui_func(9, "attack_target_9", select_point),
+    Function.ui_func(10, "attack_target_10", select_point),
+    Function.ui_func(11, "attack_target_11", select_point),
+    Function.ui_func(12, "attack_target_12", select_point),
+    Function.ui_func(13, "attack_target_13", select_point),
+    Function.ui_func(14, "attack_target_14", select_point),
+    Function.ui_func(15, "attack_target_15", select_point),
+    Function.ui_func(16, "attack_target_16", select_point),
+    Function.ui_func(17, "attack_target_17", select_point),
+    Function.ui_func(18, "attack_target_18", select_point),
+    Function.ui_func(19, "attack_target_19", select_point),
+    Function.ui_func(20, "attack_target_20", select_point),
+    Function.ui_func(21, "attack_target_21", select_point),
+    Function.ui_func(22, "attack_target_22", select_point),
+    Function.ui_func(23, "attack_target_23", select_point),
+    Function.ui_func(24, "attack_target_24", select_point),
+
 ])
 # pylint: enable=line-too-long
 

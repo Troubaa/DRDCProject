@@ -72,7 +72,7 @@ class Features:
                 6 : valid/active
     """
 
-    def __init__(self, defender_count, target_count):
+    def __init__(self, defender_count, target_count, Random=False):
         """
         input parameters:
             defender_count : int
@@ -82,54 +82,111 @@ class Features:
         self.MAX_Y = 1000
         self.target_count = target_count
         self.defender_count = defender_count
-        # Targets: Position (x,y), Value (50-150->rand), Hit (0,1->0)
-        # skewnorm, average approx. 1000 for map size of 2000
-        targets_x = sps.skewnorm.rvs(0.8, loc=(3 * self.MAX_X) / 8, scale=self.MAX_X / 4, size=(target_count, 1))
-        # Ensuring values remain within bounds (0% to 75% of width)
-        targets_x[np.where(targets_x > (3 * (self.MAX_X / 4)))] = 3 * (self.MAX_X / 4)
-        targets_x[np.where(targets_x < 0)] = 0
-        # Normal Distribution in farthest left quarter of map
-        # targets_x = np.random.normal(loc=(self.MAX_X / 2) / 4, scale=self.MAX_X / 8, size=(target_count, 1))
-        # targets_x = np.random.uniform(low=0, high=self.MAX_X / 2, size=(target_count, 1))  # On left side of map
-        targets_y = np.random.uniform(low=0, high=self.MAX_Y, size=(target_count, 1))  # Uniformly dist. in Y
-        targets_value = np.random.uniform(low=50, high=150, size=(target_count, 1))
-        self.targets = np.column_stack((targets_x, targets_y, targets_value))
 
-        # Interceptors: Position (x,y), Ammunition (5-10->rand), Reload Delay (0-5->0),
-        # skewnorm, average approx. 1250 for map width of 2000
-        defenders_x = sps.skewnorm.rvs(0.8, loc=self.MAX_X / 2, scale=self.MAX_X / 4, size=(defender_count, 1))
-        # Ensuring values remain within bounds (25% to 75% of width)
-        defenders_x[np.where(defenders_x > (3 * (self.MAX_X / 4)))] = 3 * (self.MAX_X / 4)
-        defenders_x[np.where(defenders_x < self.MAX_X / 4)] = self.MAX_X / 4
-        # Normal Distribution in middle of left half of map (i.e. slightly forward from the targets)
-        # defenders_x = np.random.normal(loc=(self.MAX_X / 2) / 2, scale=self.MAX_X / 8, size=(defender_count, 1))
-        # defenders_x = np.random.uniform(low=0, high=self.MAX_X / 2, size=(defender_count, 1))  # On left side of map (this placement will need to be modified through a policy)
-        defenders_y = np.random.uniform(low=0, high=self.MAX_Y, size=(defender_count, 1))  # Uniformly dist. in Y
-        defenders_ammunition = np.random.randint(low=5, high=10, size=(defender_count, 1))
-        defenders_reload_delay = np.zeros(shape=(defender_count, 1))
-        self.defenders = np.column_stack((defenders_x, defenders_y, defenders_ammunition, defenders_reload_delay))
+        #Random Generation
 
-        # Attacker Launcher: Position (x,y), Ammunition (5-10->rand), Reload Delay (0-5->0)
-        attacker_launcher_x = np.random.uniform(low=3 * (self.MAX_X / 4), high=self.MAX_X,
-                                                size=1)  # On right side of map
-        attacker_launcher_y = np.random.uniform(low=0, high=self.MAX_Y, size=1)
-        attacker_launcher_ammunition = np.random.randint(low=15, high=20, size=1)
-        self.attacker_launcher_ammunition = int(
-            attacker_launcher_ammunition)  # Setting a separate variable to track starting ammunition as it will be utilized in the launch function
+        if Random:
+            # Targets: Position (x,y), Value (50-150->rand), Hit (0,1->0)
+            # skewnorm, average approx. 1000 for map size of 2000
+            targets_x = sps.skewnorm.rvs(0.8, loc=(3 * self.MAX_X) / 8, scale=self.MAX_X / 4, size=(target_count, 1))
+            # Ensuring values remain within bounds (0% to 75% of width)
+            targets_x[np.where(targets_x > (3 * (self.MAX_X / 4)))] = 3 * (self.MAX_X / 4)
+            targets_x[np.where(targets_x < 0)] = 0
+            # Normal Distribution in farthest left quarter of map
+            # targets_x = np.random.normal(loc=(self.MAX_X / 2) / 4, scale=self.MAX_X / 8, size=(target_count, 1))
+            # targets_x = np.random.uniform(low=0, high=self.MAX_X / 2, size=(target_count, 1))  # On left side of map
+            targets_y = np.random.uniform(low=0, high=self.MAX_Y, size=(target_count, 1))  # Uniformly dist. in Y
+            targets_value = np.random.uniform(low=50, high=150, size=(target_count, 1))
+            self.targets = np.column_stack((targets_x, targets_y, targets_value))
 
-        attacker_launcher_reload_delay = np.zeros(1)
-        self.attacker_launcher = np.column_stack(
-            (attacker_launcher_x, attacker_launcher_y, attacker_launcher_ammunition, attacker_launcher_reload_delay))
+            # Interceptors: Position (x,y), Ammunition (5-10->rand), Reload Delay (0-5->0),
+            # skewnorm, average approx. 1250 for map width of 2000
+            defenders_x = sps.skewnorm.rvs(0.8, loc=self.MAX_X / 2, scale=self.MAX_X / 4, size=(defender_count, 1))
+            # Ensuring values remain within bounds (25% to 75% of width)
+            defenders_x[np.where(defenders_x > (3 * (self.MAX_X / 4)))] = 3 * (self.MAX_X / 4)
+            defenders_x[np.where(defenders_x < self.MAX_X / 4)] = self.MAX_X / 4
+            # Normal Distribution in middle of left half of map (i.e. slightly forward from the targets)
+            # defenders_x = np.random.normal(loc=(self.MAX_X / 2) / 2, scale=self.MAX_X / 8, size=(defender_count, 1))
+            # defenders_x = np.random.uniform(low=0, high=self.MAX_X / 2, size=(defender_count, 1))  # On left side of map (this placement will need to be modified through a policy)
+            defenders_y = np.random.uniform(low=0, high=self.MAX_Y, size=(defender_count, 1))  # Uniformly dist. in Y
+            defenders_ammunition = np.random.randint(low=5, high=10, size=(defender_count, 1))
+            defenders_reload_delay = np.zeros(shape=(defender_count, 1))
+            self.defenders = np.column_stack((defenders_x, defenders_y, defenders_ammunition, defenders_reload_delay))
 
-        # Attackers (cruise missiles): Position (x,y), Target Index, Velocity x, Velocity y, time steps to hit,
-        # Valid (0,1->0)
-        attackers_x = np.full(shape=self.attacker_launcher_ammunition, fill_value=attacker_launcher_x)
-        attackers_y = np.full(shape=self.attacker_launcher_ammunition, fill_value=attacker_launcher_y)
-        attackers_dest_vel_val = np.zeros(
-            shape=(self.attacker_launcher_ammunition, 5))  # Initializing destination (target index), velocity
-        # (x, y components), time steps to hit, validity as all zero in single shot
-        self.attackers = np.column_stack((attackers_x, attackers_y, attackers_dest_vel_val))
+            # Attacker Launcher: Position (x,y), Ammunition (5-10->rand), Reload Delay (0-5->0)
+            attacker_launcher_x = np.random.uniform(low=3 * (self.MAX_X / 4), high=self.MAX_X,
+                                                    size=1)  # On right side of map
+            attacker_launcher_y = np.random.uniform(low=0, high=self.MAX_Y, size=1)
+            attacker_launcher_ammunition = np.random.randint(low=15, high=20, size=1)
+            self.attacker_launcher_ammunition = int(
+                attacker_launcher_ammunition)  # Setting a separate variable to track starting ammunition as it will be utilized in the launch function
 
+            attacker_launcher_reload_delay = np.zeros(1)
+            self.attacker_launcher = np.column_stack(
+                (attacker_launcher_x, attacker_launcher_y, attacker_launcher_ammunition, attacker_launcher_reload_delay))
+
+            # Attackers (cruise missiles): Position (x,y), Target Index, Velocity x, Velocity y, time steps to hit,
+            # Valid (0,1->0)
+            attackers_x = np.full(shape=self.attacker_launcher_ammunition, fill_value=attacker_launcher_x)
+            attackers_y = np.full(shape=self.attacker_launcher_ammunition, fill_value=attacker_launcher_y)
+            attackers_dest_vel_val = np.zeros(
+                shape=(self.attacker_launcher_ammunition, 5))  # Initializing destination (target index), velocity
+            # (x, y components), time steps to hit, validity as all zero in single shot
+            self.attackers = np.column_stack((attackers_x, attackers_y, attackers_dest_vel_val))
+
+        #DRDCProject 2.0 Environment Set up information
+        if not Random:
+            self.targets = np.array([[478.85396664, 328.65829373, 146.84271089],
+ [750.,         303.89037788,  56.51326367],
+ [590.6660899,  650.83946777,  69.93493802],
+ [131.33433539, 704.51880681,  76.41236583],
+ [602.51227617, 774.10428303,  81.77928772],
+ [749.10262644, 935.28281648,  58.8929703 ],
+ [278.88019138, 331.87855661, 121.8577701 ],
+ [439.83669966, 288.27624334,  62.2524283 ],
+ [750.,         434.74489802,  75.15264354],
+ [644.25233947, 367.26646683,  88.18766051],
+ [521.06798777, 467.74973089, 134.51290134],
+ [748.99236144, 236.93526732, 113.5949848 ],
+ [661.84814792, 943.27619714, 113.58849199],
+ [395.6200216,  519.76636062,  78.84348384],
+ [384.92014005, 168.20626007,  65.31872099],
+ [750.,         258.55702687, 136.24161356],
+ [116.66947177, 453.03953159, 122.89955588],
+ [452.10633097, 508.18256494, 122.05743953],
+ [750.,         736.55926061, 146.00039567],
+ [189.59934508,  26.47229803, 129.73769356],
+ [750.,         629.74230684,  80.29333382],
+ [577.68498308, 762.56458944,  50.59949749],
+ [321.83832315, 314.72334956,  90.50053926],
+ [ 69.2001485,  129.4406889,   83.77579163]])
+            self.defenders = np.array([[750.,         901.56460765,   7.,           0.,        ],
+ [750.,         392.16974824,   8.,           0.        ],
+ [750.,         799.57416981,   8.,           0.        ],
+ [449.39357933, 725.80090589,   7.,           0.        ],
+ [558.32589894, 176.02651633,   7.,           0.        ],
+ [334.34377484, 577.43586767,   9.,           0.        ],
+ [750.,         480.14572075,   9.,           0.        ],
+ [602.1856544,  859.00193166,   6.,           0.        ],
+ [750.,          31.56073903,   9.,           0.        ],
+ [646.1217964,  201.94565653,   6.,           0.        ]])
+            self.attacker_launcher = np.array([[977.05699285, 368.44999299,  15.,           0.        ]])
+            self.attacker_launcher_ammunition = int(15)
+            self.attackers = np.array([[977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.,        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ],
+ [977.05699285, 368.44999299,   0.,           0.,           0.,           0.,           0.        ]])
 
 class MissileEnv(gym.Env):
     """
@@ -456,6 +513,7 @@ class MissileEnv(gym.Env):
             if len(options1[defender]) == 0 or self.features.defenders[defender, 3] > 0 or self.features.defenders[
                 defender, 2] == 0 or defender_actions[defender] not in options1[defender]:
                 # Assuming the max index to be not fire
+                print(defender)
                 temp1_defender_actions[defender] = len(self.defender_action_space)
             else:
                 temp1_defender_actions[defender] = defender_actions[defender]
@@ -474,6 +532,65 @@ class MissileEnv(gym.Env):
                 defender_actions[defender] = len(self.defender_action_space)
         # print("validated actions: ", defender_actions)
         return defender_actions
+
+
+    def greedy_defender_actions(self):
+        """
+        Selecting an action for each defender from valid actions, if available. Note that it isn't a proper random
+        selection right now as first options are favored.
+        returns:
+            None if no valid actions available
+            actions :  list
+                A list of actions with their corresponding information. The sub-lists in this list contain:
+                    0 : time steps until action completion
+                    1 : x-coordinate of event
+                    2 : y-coordinate of event
+                    3 : defender index
+                    4 : attacker index
+                    5 : probability of success
+        """
+        actions = []
+        pairs1 = np.where(self.defender_opportunities[:, :, 0] == 1)
+        pairs2 = np.where(self.defender_opportunities[:, :, 4] == 1)
+        options1 = collections.defaultdict(list)
+        options2 = collections.defaultdict(list)
+        if len(pairs1[0]) == 0 and len(pairs2[0]) == 0:
+            return None
+        else:
+            for i in range(len(pairs1[0])):
+                options1[pairs1[0][i]].append(pairs1[1][i])
+            for i in range(len(pairs2[0])):
+                options2[pairs2[0][i]].append(pairs2[1][i])
+        for i in range(self.features.defender_count):
+            # If no options for the interceptor, or reload time is not zero, or no ammunition remaining, continue
+            if len(options1[i]) == 0 or self.features.defenders[i, 3] > 0 or self.features.defenders[i, 2] == 0:
+                continue
+            else:
+                action_idx = randint(1, len(options1[i])) - 1
+                missile_index = options1[i][action_idx]
+                interceptor_index = i
+                time_step = self.defender_opportunities[interceptor_index, missile_index, 1]
+                x = self.defender_opportunities[interceptor_index, missile_index, 2]
+                y = self.defender_opportunities[interceptor_index, missile_index, 3]
+                actions.append([time_step, x, y, interceptor_index, missile_index, 0.7])
+                self.features.defenders[interceptor_index, 3] = self.DEFENDER_RELOAD_DELAY / self.time_step_size
+                self.features.defenders[interceptor_index, 2] -= 1
+        for i in range(self.features.defender_count):
+            if len(options2[i]) == 0 or self.features.defenders[i, 3] > 0 or self.features.defenders[i, 2] == 0:
+                continue
+            else:
+                action_idx = randint(1, len(options2[i])) - 1
+                missile_index = options2[i][action_idx]
+                interceptor_index = i
+                time_step = self.defender_opportunities[interceptor_index, missile_index, 5]
+                x = self.defender_opportunities[interceptor_index, missile_index, 6]
+                y = self.defender_opportunities[interceptor_index, missile_index, 7]
+                actions.append([time_step, x, y, interceptor_index, missile_index, 0.7])
+                self.features.defenders[interceptor_index, 3] = self.DEFENDER_RELOAD_DELAY / self.time_step_size
+                self.features.defenders[interceptor_index, 2] -= 1
+
+        return actions
+
 
     # Used to process the validated actions (launch defender missiles) and return the list of actions taken
     def process_defender_actions(self, defender_actions):
@@ -660,10 +777,14 @@ class MissileEnv(gym.Env):
         if attacker_action > -1:
             self.cruise_missile_launch(attacker_action)
         if defender_actions:
-            # print("defender action: ", defender_actions)
-            defender_actions = self.validate_defender_actions(defender_actions)
-            defender_actions = self.process_defender_actions(defender_actions)
+            print("defender action: ", defender_actions)
+            #defender_actions = self.validate_defender_actions(defender_actions)
+            #print("validate defender action: ", defender_actions)
+            #defender_actions = self.process_defender_actions(defender_actions)
+            #print("process defender action: ", defender_actions)
             self.add_interception_events(defender_actions)
+
+        #print(self.interception_event_list)
         self.process_events()
         # Updating cruise_missile_positions
         self.update_cruise_missile_positions()
@@ -680,8 +801,9 @@ class MissileEnv(gym.Env):
         self.wrapper.step_update(self.features, self.defender_opportunities)
 
         observation = [obs_def, obs_att]
+
         done = self.done
-        reward = -self.reward
+        reward = self.reward
         info = self.info
 
         return self.features, self.defender_opportunities, reward, done, info
@@ -787,7 +909,7 @@ def visualize(dt, env):
         for interception in interceptions:
             interception.draw()
         attacker_sprite.draw()
-        pyglet.image.get_buffer_manager().get_color_buffer().save('./images/' + str(env.current_time) + '.png')
+        #pyglet.image.get_buffer_manager().get_color_buffer().save('./images/' + str(env.current_time) + '.png')
         # Used to slow down the simulation
         # time.sleep(0.2)
         pyglet.app.exit()

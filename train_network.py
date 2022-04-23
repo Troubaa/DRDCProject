@@ -28,17 +28,17 @@ VALUE = []
 COUNTER = 0
 LOCK = threading.Lock()
 FLAGS = flags.FLAGS
-flags.DEFINE_bool("training", True, "Whether to train agents.")
+flags.DEFINE_bool("training", False, "Whether to train agents.")
 flags.DEFINE_bool("continuation", False, "Continuously training.")
 flags.DEFINE_float("learning_rate", 0.0005, "Learning rate for training.")
 flags.DEFINE_float("discount", 0.99, "Discount rate for future rewards.")
-flags.DEFINE_integer("max_steps", 10, "Total steps for training.")
-flags.DEFINE_integer("snapshot_step", int(1e3), "Step for snapshot.")
+flags.DEFINE_integer("max_steps", 40000, "Total steps for training.")
+flags.DEFINE_integer("snapshot_step", 500, "Step for snapshot.")
 flags.DEFINE_string("snapshot_path", "./snapshot/", "Path for snapshot.")
 flags.DEFINE_string("log_path", "./log/", "Path for log.")
 flags.DEFINE_string("device", "0", "Device for training.")
 
-flags.DEFINE_string("log_name", "DRDCSimulator", "Name of a simulator used (Different versions/updates made).")
+flags.DEFINE_string("log_name", "DRDCSimulator3.0", "Name of a simulator used (Different versions/updates made).")
 flags.DEFINE_bool("render", True, "Whether to render with visuals.")
 flags.DEFINE_integer("screen_resolution", 64, "Resolution for screen feature layers.")
 flags.DEFINE_integer("minimap_resolution", 64, "Resolution for minimap feature layers.")
@@ -46,30 +46,30 @@ flags.DEFINE_integer("step_mul", 8, "Game steps per agent step.")
 
 flags.DEFINE_string("agent", "a3c_agent.A3CAgent", "Which agent to run.")
 flags.DEFINE_string("net", "fcn", "atari or fcn.")
-flags.DEFINE_enum("agent_race", None, sc2_env.races.keys(), "Agent's race.")
-flags.DEFINE_enum("bot_race", None, sc2_env.races.keys(), "Bot's race.")
-flags.DEFINE_enum("difficulty", None, sc2_env.difficulties.keys(), "Bot's strength.")
-flags.DEFINE_integer("max_agent_steps", 50, "Total agent steps.")
 
 flags.DEFINE_bool("profile", False, "Whether to turn on code profiling.")
 flags.DEFINE_bool("trace", False, "Whether to trace the code execution.")
-flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.")
-flags.DEFINE_bool("save_replay", False, "Whether to save a replay at the end.")
+flags.DEFINE_integer("parallel", 1, "How many instances to run in parallel.") #Does not work in current state
 
-flags.DEFINE_integer("targets", 8, "Number of targets (should not change)")
-flags.DEFINE_integer("defenders", 6, "Number of defenders (should not change)")
-flags.DEFINE_integer("ts_size", 5, "Minutes")
-
+flags.DEFINE_bool("random", False, "Whether to randomly generate a new features for the simulator or to keep hard coded features.")
+flags.DEFINE_integer("targets", 24, "Number of targets (Do not change, need to add more actions to available action list)")
+flags.DEFINE_integer("defenders", 10, "Number of defenders")
+flags.DEFINE_integer("ts_size", 1, "Minutes")
+flags.DEFINE_integer("sim_length", 150, "Minutes")
 
 FLAGS(sys.argv)
 
+POLICYFILE = "./Data/policydata3.1.txt."
+SCOREFILE = "./Data/scoredata3.1.txt."
+VALUEFILE = "./Data/valuedata3.1.txt."
+
 if FLAGS.training:
   PARALLEL = FLAGS.parallel
-  MAX_AGENT_STEPS = FLAGS.max_agent_steps
+  MAX_AGENT_STEPS = int(FLAGS.sim_length / FLAGS.ts_size)
   DEVICE = ['/gpu:'+dev for dev in FLAGS.device.split(',')]
 else:
   PARALLEL = 1
-  MAX_AGENT_STEPS = 1e5
+  MAX_AGENT_STEPS = int(FLAGS.sim_length / FLAGS.ts_size)
   DEVICE = ['/cpu:0']
 
 LOG = FLAGS.log_path+FLAGS.log_name+'/'+FLAGS.net
@@ -82,7 +82,7 @@ if not os.path.exists(SNAPSHOT):
 
 def run_thread(agent, render):
   with MissileEnv(
-    features=Features(target_count=FLAGS.targets, defender_count=FLAGS.defenders), time_step_size=FLAGS.ts_size,
+    features=Features(target_count=FLAGS.targets, defender_count=FLAGS.defenders, Random=FLAGS.random), time_step_size=FLAGS.ts_size,
           wrapper=Wrapper(target_count=FLAGS.targets, defender_count=FLAGS.defenders, discount=FLAGS.discount)) as env:
     #env = available_actions_printer.AvailableActionsPrinter(env)
 
@@ -119,13 +119,15 @@ def run_thread(agent, render):
             value = VALUE
             score = SCORE
 
+            print(score)
+
           #If save data when we reach the snapshot step just in case program crashes half way through we still have some data.
-          if counter % FLAGS.snapshot_step == 1:
+          if counter % FLAGS.snapshot_step == 0:
             agent.save_model(SNAPSHOT, counter)
 
-            policyFile = open("./Data/policydata.txt.", "a")
-            valueFile = open("./Data/valuedata.txt.", "a")
-            scoreFile = open("./Data/scoredata.txt.", "a")
+            policyFile = open(POLICYFILE, "a")
+            valueFile = open(VALUEFILE, "a")
+            scoreFile = open(SCOREFILE, "a")
 
             strPolicy = listToString(policy)
             strValue = listToString(value)
@@ -154,9 +156,9 @@ def run_thread(agent, render):
           #save the last snapshot of data before game closes.
           if counter >= FLAGS.max_steps:
 
-            policyFile = open("./Data/policydata.txt.", "a")
-            valueFile = open("./Data/valuedata.txt.", "a")
-            scoreFile = open("./Data/scoredata.txt.", "a")
+            policyFile = open(POLICYFILE, "a")
+            valueFile = open(VALUEFILE, "a")
+            scoreFile = open(SCOREFILE, "a")
 
             strPolicy = listToString(policy)
             strValue = listToString(value)
@@ -238,7 +240,7 @@ def _main(unused_argv):
   # Run threads
   threads = []
   for i in range(PARALLEL - 1):
-    t = threading.Thread(target=run_thread, args=(agents[i], FLAGS.log_name, False))
+    t = threading.Thread(target=run_thread, args=(agents[i], FLAGS.render))
     threads.append(t)
     t.daemon = True
     t.start()
