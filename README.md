@@ -1,5 +1,5 @@
 # DRDCProject
-Cals Simulator with the A3C Neural Network from the StarCraft 2 environment.
+Cals Simulator with the A2C Neural Network from the StarCraft 2 environment.
 
 This program requires quite a bit of setup before it can run, and it is very important to make sure 
 to download the proper versions. Otherwise conflicts between versions will occur and the 
